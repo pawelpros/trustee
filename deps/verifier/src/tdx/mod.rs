@@ -9,7 +9,8 @@ use super::*;
 use crate::intel_dcap::{ecdsa_quote_verification, extend_using_custom_claims};
 use async_trait::async_trait;
 use base64::Engine;
-use eventlog::{CcEventLog, Rtmr};
+use eventlog_rs::rtmr::Rtmr;
+use eventlog::{CcEventLog};
 use quote::parse_tdx_quote;
 use serde::{Deserialize, Serialize};
 

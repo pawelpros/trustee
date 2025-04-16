@@ -2,19 +2,19 @@ use anyhow::*;
 use byteorder::{LittleEndian, ReadBytesExt};
 use core::mem::size_of;
 use eventlog_rs::Eventlog;
+use eventlog_rs::tcg_enum::TcgEventType;
+use eventlog_rs::rtmr::Rtmr;
 use log::{trace, warn};
 use std::result::Result::Ok;
 use strum::{AsRefStr, Display, EnumString};
 
-const KERNEL_VENMEDIA_DEVPATH_OFFSET: usize = 55;
-
 #[derive(AsRefStr, Copy, Debug, Clone, EnumString, Display)]
 pub enum MeasuredEntity {
-    #[strum(serialize = "td_hob\0")]
+    #[strum(serialize = "td_hob")]
     TdShim,
-    #[strum(serialize = "td_payload\0")]
+    #[strum(serialize = "td_payload")]
     TdShimKernel,
-    #[strum(serialize = "td_payload_info\0")]
+    #[strum(serialize = "td_payload_info")]
     TdShimKernelParams,
     #[strum(serialize = "kernel")]
     TdvfKernel,
@@ -22,14 +22,6 @@ pub enum MeasuredEntity {
     TdvfKernelParams,
     #[strum(serialize = "Linux initrd")]
     TdvfInitrd,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Rtmr {
-    pub rtmr0: [u8; 48],
-    pub rtmr1: [u8; 48],
-    pub rtmr2: [u8; 48],
-    pub rtmr3: [u8; 48],
 }
 
 #[derive(Clone)]
@@ -46,18 +38,9 @@ impl TryFrom<Vec<u8>> for CcEventLog {
     }
 }
 
-fn read_string(raw_bytes: &[u8]) -> Result<String, std::string::FromUtf16Error> {
-    let utf16_string: Vec<u16> = raw_bytes
-        .chunks_exact(2)
-        .map(|c| u16::from_be_bytes(c.try_into().unwrap_or([0u8; 2])))
-        .collect();
-
-    String::from_utf16(utf16_string.as_ref())
-}
-
 impl CcEventLog {
     pub fn integrity_check(&self, rtmr_from_quote: Rtmr) -> Result<()> {
-        let rtmr_eventlog = self.rebuild_rtmr()?;
+        let rtmr_eventlog = Rtmr::try_from(self.cc_events.clone())?;
 
         // Compare rtmr values from tdquote and EventLog acpi table
         if rtmr_from_quote.rtmr0 != rtmr_eventlog.rtmr0
@@ -70,57 +53,20 @@ impl CcEventLog {
         Ok(())
     }
 
-    fn rebuild_rtmr(&self) -> Result<Rtmr> {
-        let mr_map = self.cc_events.replay_measurement_regiestry();
-
-        let mr = Rtmr {
-            rtmr0: mr_map.get(&1).unwrap_or(&Vec::from([0u8; 48]))[0..48].try_into()?,
-            rtmr1: mr_map.get(&2).unwrap_or(&Vec::from([0u8; 48]))[0..48].try_into()?,
-            rtmr2: mr_map.get(&3).unwrap_or(&Vec::from([0u8; 48]))[0..48].try_into()?,
-            rtmr3: mr_map.get(&4).unwrap_or(&Vec::from([0u8; 48]))[0..48].try_into()?,
-        };
-
-        Ok(mr)
-    }
-
     pub fn query_digest(&self, entity: MeasuredEntity) -> Option<String> {
         for event_entry in self.cc_events.log.clone() {
-            match (entity, event_entry.event_type.as_str()) {
-                (MeasuredEntity::TdvfKernel, "EV_EFI_BOOT_SERVICES_APPLICATION") => {
-                    let raw_bytes = &event_entry.event_desc[KERNEL_VENMEDIA_DEVPATH_OFFSET
-                        ..KERNEL_VENMEDIA_DEVPATH_OFFSET + 2 * entity.as_ref().len()];
-
-                    match read_string(raw_bytes) {
-                        Ok(kernel) => {
-                            if kernel == entity.as_ref() {
-                                return event_entry.digests.first().map(|d| hex::encode(&d.digest));
-                            }
-                            warn!("Unknown Vendor Media Device Path: {kernel}");
-                        }
-                        Err(e) => warn!("Failed to read UEFI_IMAGE_LOAD_EVENT: {e}"),
+            match (entity, event_entry.event_type) {
+                (MeasuredEntity::TdvfKernel, TcgEventType::EvEfiBootServicesApplication) => {
+                    if event_entry.event_desc == entity.as_ref() {
+                        return event_entry.digests.first().map(|d| hex::encode(&d.digest));
                     }
+                    warn!("Unknown Vendor Media Device Path: {event_entry:?}");
                 }
-                (MeasuredEntity::TdvfKernelParams | MeasuredEntity::TdvfInitrd, "EV_EVENT_TAG") => {
-                    let offset = size_of::<u32>();
-
-                    // Read the tagged event size after the first u32 (=Event ID)
-                    let event_size = (&event_entry.event_desc[offset..2 * offset])
-                        .read_u32::<LittleEndian>()
-                        .unwrap_or_default() as usize;
-
-                    // Read the tagged event after the event size
-                    match String::from_utf8(
-                        event_entry.event_desc[offset * 2..offset * 2 + event_size - 1].to_vec(),
-                    ) {
-                        Ok(event) => {
-                            if event == entity.as_ref() {
-                                return event_entry.digests.first().map(|d| hex::encode(&d.digest));
-                            }
-                            warn!("Event {event:?} did not match with MeasuredEntity {entity:?}");
-                        }
-
-                        Err(e) => warn!("Failed to parse tagged event: {e}"),
+                (MeasuredEntity::TdvfKernelParams | MeasuredEntity::TdvfInitrd, TcgEventType::EvEventTag) => {
+                    if event_entry.event_desc == entity.as_ref() {
+                        return event_entry.digests.first().map(|d| hex::encode(&d.digest));
                     }
+                    warn!("Event {event_entry:?} did not match with MeasuredEntity {entity:?}");
                 }
                 (
                     MeasuredEntity::TdShim
@@ -134,8 +80,7 @@ impl CcEventLog {
                     if event_entry.event_desc.len() < event_desc_prefix.len() {
                         continue;
                     }
-                    if &event_entry.event_desc[..event_desc_prefix.len()]
-                        == event_desc_prefix.as_slice()
+                    if event_entry.event_desc.starts_with(&event_desc_prefix)
                     {
                         return event_entry.digests.first().map(|d| hex::encode(&d.digest));
                     }
@@ -153,29 +98,26 @@ impl CcEventLog {
             if event_entry.event_desc.len() < event_desc_prefix.len() {
                 continue;
             }
-            if &event_entry.event_desc[..event_desc_prefix.len()] == event_desc_prefix.as_slice() {
-                return Some(event_entry.event_desc);
+            if event_entry.event_desc == event_desc_prefix {
+                return Some(event_entry.event_desc.as_bytes().to_vec());
             }
         }
         None
     }
 
-    fn generate_query_key_prefix(entity: MeasuredEntity) -> Option<Vec<u8>> {
+    fn generate_query_key_prefix(entity: MeasuredEntity) -> Option<String> {
         match entity {
             MeasuredEntity::TdShimKernel => {
                 // Event data is in UEFI_PLATFORM_FIRMWARE_BLOB2 format
                 // Defined in TCG PC Client Platform Firmware Profile Specification section
                 // 'UEFI_PLATFORM_FIRMWARE_BLOB Structure Definition'
-                let entity_name = entity.to_string();
-                let mut event_desc_prefix = vec![entity_name.len() as u8];
-                event_desc_prefix.extend_from_slice(entity_name.as_bytes());
-                Some(event_desc_prefix)
+                Some(entity.to_string())
             }
             MeasuredEntity::TdShim | MeasuredEntity::TdShimKernelParams => {
                 // Event data is in TD_SHIM_PLATFORM_CONFIG_INFO format
                 // Defined in td-shim spec 'Table 3.5-4 TD_SHIM_PLATFORM_CONFIG_INFO'
                 // link: https://github.com/confidential-containers/td-shim/blob/main/doc/tdshim_spec.md
-                Some(entity.to_string().as_bytes().to_vec())
+                Some(entity.to_string())
             }
             _ => None,
         }
@@ -233,7 +175,7 @@ mod tests {
         let ccel_bin = fs::read("./test_data/CCEL_data").unwrap();
         let ccel = CcEventLog::try_from(ccel_bin).unwrap();
 
-        let rtmr_result = ccel.rebuild_rtmr();
+        let rtmr_result = Rtmr::try_from(ccel.cc_events);
         assert!(rtmr_result.is_ok());
         let rtmr = rtmr_result.unwrap();
 
