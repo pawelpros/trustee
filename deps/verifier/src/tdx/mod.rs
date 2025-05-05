@@ -98,8 +98,6 @@ async fn verify_evidence(
                 .map_err(|e| anyhow!("Parse CC Eventlog failed: {:?}", e))?;
             ccel_option = Some(ccel.clone());
 
-            log::debug!("Get CC Eventlog. \n{}\n", &ccel.cc_events);
-
             let rtmr_from_quote = Rtmr {
                 rtmr0: quote.rtmr_0().try_into().expect("must be 48 bytes"),
                 rtmr1: quote.rtmr_1().try_into().expect("must be 48 bytes"),
