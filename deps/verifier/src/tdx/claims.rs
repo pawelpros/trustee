@@ -206,8 +206,8 @@ pub fn generate_parsed_claim(
 }
 
 fn parse_ccel(ccel: CcEventLog, ccel_map: &mut Map<String, Value>) -> Result<()> {
-
-    ccel_map.insert("uefi_event_logs".to_string(), serde_json::to_value(ccel.clone().cc_events));
+    let result = serde_json::to_value(ccel.clone().cc_events.log)?;
+    ccel_map.insert("uefi_event_logs".to_string(), result);
 
     // Digest of kernel using td-shim
     match ccel.query_digest(MeasuredEntity::TdShimKernel) {

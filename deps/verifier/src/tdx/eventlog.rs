@@ -1,7 +1,7 @@
 use anyhow::*;
-use eventlog_rs::rtmr::Rtmr;
-use eventlog_rs::tcg_enum::TcgEventType;
-use eventlog_rs::{EventDetails, Eventlog};
+use crate::eventlog::cclog::rtmr::Rtmr;
+use crate::eventlog::cclog::tcg_enum::TcgEventType;
+use crate::eventlog::cclog::{EventDetails, Eventlog};
 use log::{trace, warn};
 use std::result::Result::Ok;
 use strum::{AsRefStr, Display, EnumString};

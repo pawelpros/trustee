@@ -1,0 +1,11 @@
+use crate::eventlog::cclog::EventDetails;
+use crate::eventlog::cclog::parser::DescriptionParser;
+use anyhow::{Error, Result};
+pub struct EvSimpleParser;
+
+impl DescriptionParser for EvSimpleParser {
+    fn parse_description(&self, data: Vec<u8>) -> Result<EventDetails, Error> {
+        let event_desc = String::from_utf8(data).unwrap_or(String::default());
+        Ok(EventDetails::from_string(event_desc))
+    }
+}
