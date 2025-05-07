@@ -246,3 +246,31 @@ fn parse_digests(
 
     Ok((digests, index))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use std::fs;
+    use assert_json_diff::assert_json_eq;
+
+    #[rstest]
+    #[case("./test_data/CCEL_data", "./test_data/CCEL_data_out.json")]
+    #[case("./test_data/CCEL_data_ovmf", "./test_data/CCEL_data_ovmf_out.json")]
+    #[case("./test_data/CCEL_data_grub", "./test_data/CCEL_data_grub_out.json")]
+    fn test_query_digest(
+        #[case] test_data: &str,
+        #[case] expected_data: &str,
+    ) {
+        let ccel_bin = fs::read(test_data).expect("open test data");
+        let ccel = Eventlog::try_from(ccel_bin).expect("parse CCEL eventlog");
+        let json = serde_json::to_value(&ccel).unwrap();
+
+        let expected_json_str = fs::read_to_string(expected_data)
+            .expect("read expected json output failed");
+        let expected: Value = serde_json::from_str(&expected_json_str)
+            .expect("parsing expected json failed");
+
+        assert_json_eq!(expected, json);
+    }
+}

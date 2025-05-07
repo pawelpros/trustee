@@ -1,45 +1,9 @@
 {
-  "init_data": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-  "quote": {
-    "body": {
-      "mr_config_id": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-      "mr_owner": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-      "mr_owner_config": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-      "mr_seam": "2fd279c16164a93dd5bf373d834328d46008c2b693af9ebb865b08b2ced320c9a89b4869a9fab60fbe9d0c5a5363c656",
-      "mr_td": "705ee9381b8633a9fbe532b52345e8433343d2868959f57889d84ca377c395b689cac1599ccea1b7d420483a9ce5f031",
-      "mrsigner_seam": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-      "report_data": "7c71fe2c86eff65a7cf8dbc22b3275689fd0464a267baced1bf94fc1324656aeb755da3d44d098c0c87382f3a5f85b45c8a28fee1d3bdb38342bf96671501429",
-      "rtmr_0": "e940da7c2712d2790e2961e00484f4fa8e6f9eed71361655ae22699476b14f9e63867eb41edd4b480fef0c59f496b288",
-      "rtmr_1": "559cfcf42716ed6c40a48a73d5acb7da255435012f0a9f00fbe8c1c57612ede486a5684c4c9ff3ddf52315fcdca3a596",
-      "rtmr_2": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-      "rtmr_3": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-      "seam_attributes": "0000000000000000",
-      "tcb_svn": "03000500000000000000000000000000",
-      "td_attributes": "0100001000000000",
-      "xfam": "e742060000000000"
-    },
-    "header": {
-      "att_key_type": "0200",
-      "reserved": "00000000",
-      "tee_type": "81000000",
-      "user_data": "d099bfec0a477aa85a605dceabf2b10800000000",
-      "vendor_id": "939a7233f79c4ca9940a0db3957f0607",
-      "version": "0400"
-    }
-  },
-  "report_data": "7c71fe2c86eff65a7cf8dbc22b3275689fd0464a267baced1bf94fc1324656aeb755da3d44d098c0c87382f3a5f85b45c8a28fee1d3bdb38342bf96671501429",
-  "td_attributes": {
-    "debug": true,
-    "key_locker": false,
-    "perfmon": false,
-    "protection_keys": false,
-    "septve_disable": true
-  },
   "uefi_event_logs": [
     {
       "details": {
-        "data": [],
-        "string": ""
+        "string": "",
+        "data": []
       },
       "digests": [
         {
@@ -95,6 +59,7 @@
     },
     {
       "details": {
+        "string": "td_payload_info root=/dev/vda1 console=hvc0 rw",
         "data": [
           {
             "name": "td_payload_info",
@@ -112,8 +77,7 @@
             "name": "rw",
             "value": null
           }
-        ],
-        "string": "td_payload_info root=/dev/vda1 console=hvc0 rw"
+        ]
       },
       "digests": [
         {
