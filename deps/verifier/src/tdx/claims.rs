@@ -14,9 +14,8 @@ use log::debug;
 use serde_json::{Map, Value};
 use thiserror::Error;
 
-use crate::{eventlog::AAEventlog, tdx::quote::QuoteV5Body, TeeEvidenceParsedClaim};
-
-use super::{eventlog::CcEventLog, quote::Quote};
+use super::quote::Quote;
+use crate::{eventlog::AAEventlog, tdx::quote::QuoteV5Body, TeeEvidenceParsedClaim, eventlog::cclog::CcEventLog};
 
 macro_rules! parse_claim {
     ($map_name: ident, $key_name: literal, $field: ident) => {
@@ -140,7 +139,7 @@ pub fn generate_parsed_claim(
 
     // Claims from CC EventLog.
     if let Some(ccel) = cc_eventlog {
-        let result = serde_json::to_value(ccel.clone().cc_events.log)?;
+        let result = serde_json::to_value(ccel.clone().log)?;
         claims.insert("uefi_event_logs".to_string(), result);
     }
 
@@ -249,14 +248,13 @@ impl<'a> TryFrom<&'a [u8]> for TdShimPlatformConfigInfo<'a> {
 mod tests {
     // use std::fs;
     use assert_json_diff::assert_json_eq;
-    use serde_json::{Value};
+    use serde_json::Value;
 
-    use crate::tdx::{
-        claims::PlatformConfigInfoError, eventlog::CcEventLog, quote::parse_tdx_quote,
-    };
+    use crate::tdx::{claims::PlatformConfigInfoError, quote::parse_tdx_quote};
 
     use super::{generate_parsed_claim, TdShimPlatformConfigInfo};
 
+    use crate::eventlog::cclog::CcEventLog;
     use rstest::rstest;
 
     #[test]
@@ -266,10 +264,11 @@ mod tests {
         let quote = parse_tdx_quote(&quote_bin).expect("parse quote");
         let ccel = CcEventLog::try_from(ccel_bin).expect("parse ccel");
         let claims = generate_parsed_claim(quote, Some(ccel), None).expect("parse claim failed");
-        let expected_json_str = std::fs::read_to_string("./test_data/parse_tdx_claims_expected.json")
-            .expect("read expected json output failed");
-        let expected: Value = serde_json::from_str(&expected_json_str)
-            .expect("parsing expected json failed");
+        let expected_json_str =
+            std::fs::read_to_string("./test_data/parse_tdx_claims_expected.json")
+                .expect("read expected json output failed");
+        let expected: Value =
+            serde_json::from_str(&expected_json_str).expect("parsing expected json failed");
 
         // TODO REMOVE DEBUG DUMP
         // let _ = fs::write(
@@ -293,10 +292,14 @@ mod tests {
         b"0123456789ABCDEF\x00\x00\x00",
         Err(PlatformConfigInfoError::InvalidHeader)
     )]
-    #[case(b"0123456789ABCDEF\x00\x00\x00\x00", Ok(TdShimPlatformConfigInfo{descriptor: *b"0123456789ABCDEF", info_length: 0, data: &[]}))]
-    #[case(b"0123456789ABCDEF\x01\x00\x00\x00X", Ok(TdShimPlatformConfigInfo{descriptor: *b"0123456789ABCDEF", info_length: 1, data: b"X"}))]
-    #[case(b"0123456789ABCDEF\x03\x00\x00\x00ABC", Ok(TdShimPlatformConfigInfo{descriptor: *b"0123456789ABCDEF", info_length: 3, data: b"ABC"}))]
-    #[case(b"0123456789ABCDEF\x04\x00\x00\x00;):)", Ok(TdShimPlatformConfigInfo{descriptor: *b"0123456789ABCDEF", info_length: 4, data: b";):)"}))]
+    #[case(b"0123456789ABCDEF\x00\x00\x00\x00", Ok(TdShimPlatformConfigInfo{descriptor: *b"0123456789ABCDEF", info_length: 0, data: &[]}
+    ))]
+    #[case(b"0123456789ABCDEF\x01\x00\x00\x00X", Ok(TdShimPlatformConfigInfo{descriptor: *b"0123456789ABCDEF", info_length: 1, data: b"X"}
+    ))]
+    #[case(b"0123456789ABCDEF\x03\x00\x00\x00ABC", Ok(TdShimPlatformConfigInfo{descriptor: *b"0123456789ABCDEF", info_length: 3, data: b"ABC"}
+    ))]
+    #[case(b"0123456789ABCDEF\x04\x00\x00\x00;):)", Ok(TdShimPlatformConfigInfo{descriptor: *b"0123456789ABCDEF", info_length: 4, data: b";):)"}
+    ))]
     #[case(
         b"0123456789ABCDEF\x01\x00\x00\x00",
         Err(PlatformConfigInfoError::NotEnoughData)

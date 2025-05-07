@@ -14,7 +14,7 @@ mod parser;
 mod utils;
 
 #[derive(Clone, Serialize)]
-pub struct Eventlog {
+pub struct CcEventLog {
     #[serde(rename = "uefi_event_logs")]
     pub log: Vec<EventlogEntry>,
 }
@@ -126,7 +126,7 @@ where
     }
 }
 
-impl TryFrom<Vec<u8>> for Eventlog {
+impl TryFrom<Vec<u8>> for CcEventLog {
     type Error = anyhow::Error;
 
     fn try_from(data: Vec<u8>) -> Result<Self> {
@@ -144,7 +144,7 @@ impl TryFrom<Vec<u8>> for Eventlog {
             }
         }
 
-        Ok(Eventlog { log: event_log })
+        Ok(CcEventLog { log: event_log })
     }
 }
 
@@ -250,9 +250,9 @@ fn parse_digests(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_json_diff::assert_json_eq;
     use rstest::rstest;
     use std::fs;
-    use assert_json_diff::assert_json_eq;
 
     #[rstest]
     #[case("./test_data/CCEL_data", "./test_data/CCEL_data_out.json")]
@@ -263,7 +263,7 @@ mod tests {
         #[case] expected_data: &str,
     ) {
         let ccel_bin = fs::read(test_data).expect("open test data");
-        let ccel = Eventlog::try_from(ccel_bin).expect("parse CCEL eventlog");
+        let ccel = CcEventLog::try_from(ccel_bin).expect("parse CCEL eventlog");
         let json = serde_json::to_value(&ccel).unwrap();
 
         let expected_json_str = fs::read_to_string(expected_data)

@@ -6,16 +6,15 @@ use log::{debug, error, info, warn};
 use crate::{eventlog::AAEventlog, tdx::claims::generate_parsed_claim};
 
 use super::*;
+use crate::eventlog::cclog::rtmr::Rtmr;
+use crate::eventlog::cclog::CcEventLog;
 use crate::intel_dcap::{ecdsa_quote_verification, extend_using_custom_claims};
 use async_trait::async_trait;
 use base64::Engine;
-use crate::eventlog::cclog::rtmr::Rtmr;
-use eventlog::{CcEventLog};
 use quote::parse_tdx_quote;
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod claims;
-pub mod eventlog;
 pub(crate) mod quote;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -97,7 +96,6 @@ async fn verify_evidence(
             let ccel = CcEventLog::try_from(ccel_data)
                 .map_err(|e| anyhow!("Parse CC Eventlog failed: {:?}", e))?;
             ccel_option = Some(ccel.clone());
-
             let rtmr_from_quote = Rtmr {
                 rtmr0: quote.rtmr_0().try_into().expect("must be 48 bytes"),
                 rtmr1: quote.rtmr_1().try_into().expect("must be 48 bytes"),
@@ -105,7 +103,8 @@ async fn verify_evidence(
                 rtmr3: quote.rtmr_3().try_into().expect("must be 48 bytes"),
             };
 
-            ccel.integrity_check(rtmr_from_quote)?;
+            let rtmr = Rtmr::try_from(ccel)?;
+            rtmr.integrity_check(rtmr_from_quote)?;
             info!("CCEL integrity check succeeded.");
         }
         _ => {
@@ -139,8 +138,11 @@ async fn verify_evidence(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::{fs, str::FromStr};
+    use std::{fs};
+    use crate::eventlog::cclog::CcEventLog;
+    use crate::tdx::quote::parse_tdx_quote;
+    use crate::{eventlog::AAEventlog, tdx::claims::generate_parsed_claim};
+    use std::str::FromStr;
 
     #[test]
     fn test_generate_parsed_claim() {
