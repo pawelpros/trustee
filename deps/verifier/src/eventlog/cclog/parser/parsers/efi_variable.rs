@@ -1,5 +1,5 @@
-use crate::eventlog::cclog::{utils, EventDetails};
 use crate::eventlog::cclog::parser::DescriptionParser;
+use crate::eventlog::cclog::{utils, EventDetails};
 use anyhow::{Error, Result};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
@@ -14,15 +14,14 @@ impl DescriptionParser for EvEfiVariableParser {
         let var_data_length = utils::read_u64_le(&data, &mut index)?;
 
         let description_bytes =
-            utils::get_next_bytes(&*data, &mut index, uname_length as usize * 2)?;
+            utils::get_next_bytes(&data, &mut index, uname_length as usize * 2)?;
 
-        let unicode_name = String::from_utf8(description_bytes.to_vec())?
-            .replace('\0', "");
+        let unicode_name = String::from_utf8(description_bytes.to_vec())?.replace('\0', "");
 
         let mut variable_data = "".to_string();
         if var_data_length > 0 {
             let variable_data_bytes =
-                utils::get_next_bytes(&*data, &mut index, var_data_length as usize)?;
+                utils::get_next_bytes(&data, &mut index, var_data_length as usize)?;
             variable_data = STANDARD.encode(variable_data_bytes);
         }
 

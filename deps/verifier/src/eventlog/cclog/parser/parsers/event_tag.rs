@@ -8,8 +8,7 @@ impl DescriptionParser for EvEventTagParser {
         let mut index = 4;
         let length = utils::read_u32_le(&data, &mut index)? as usize;
 
-        let description_bytes =
-            utils::get_next_bytes(&*data, &mut index, length)?;
+        let description_bytes = utils::get_next_bytes(&data, &mut index, length)?;
 
         let event_desc = String::from_utf8(description_bytes.to_vec())?
             .replace('\0', "");

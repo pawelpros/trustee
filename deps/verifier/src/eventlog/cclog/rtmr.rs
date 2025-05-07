@@ -72,11 +72,11 @@ fn replay_measurement_registry(data: Eventlog) -> HashMap<u32, Vec<u8>> {
         for log in log_set.iter() {
             let digest = &log.digests[0].digest;
             let mut sha384_algo = Sha384::new();
-            sha384_algo.update(&mr_value);
+            sha384_algo.update(mr_value);
             sha384_algo.update(digest.as_slice());
             mr_value.copy_from_slice(sha384_algo.finalize().as_slice());
         }
-        result.insert(mr_index.clone(), mr_value.to_vec());
+        result.insert(*mr_index, mr_value.to_vec());
     }
 
     result

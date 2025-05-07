@@ -1,10 +1,9 @@
-use num_enum::TryFromPrimitive;
 use serde::Serialize;
 use crate::eventlog::cclog::parser::DescriptionParser;
 use crate::eventlog::cclog::parser::parsers::*;
 
 #[repr(u32)]
-#[derive(Debug, Clone, Hash, Copy, PartialEq, Eq, TryFromPrimitive, Serialize)]
+#[derive(Debug, Clone, Hash, Copy, PartialEq, Eq, Serialize)]
 pub enum TcgAlgorithm {
     #[serde(rename = "RSA")]
     Rsa = 0x1,
@@ -20,8 +19,24 @@ pub enum TcgAlgorithm {
     Sha512 = 0xD,
 }
 
+impl TryFrom<u32> for TcgAlgorithm {
+    type Error = ();
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        match value {
+            0x1 => Ok(TcgAlgorithm::Rsa),
+            0x3 => Ok(TcgAlgorithm::Tdes),
+            0x4 => Ok(TcgAlgorithm::Sha1),
+            0xB => Ok(TcgAlgorithm::Sha256),
+            0xC => Ok(TcgAlgorithm::Sha384),
+            0xD => Ok(TcgAlgorithm::Sha512),
+            _ => Err(()),
+        }
+    }
+}
+
 #[repr(u32)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TcgEventType {
     EvPrebootCert = 0x0,
     EvPostCode = 0x1,
@@ -61,6 +76,52 @@ pub enum TcgEventType {
     EvEfiVariableAuthority = 0x800000e0,
     EvEfiSpdmFirmwareBlob = 0x800000e1,
     EvEfiSpdmFirmwareConfig = 0x800000e2,
+}
+
+impl TryFrom<u32> for TcgEventType {
+    type Error = ();
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        match value {
+            0x0 => Ok(TcgEventType::EvPrebootCert),
+            0x1 => Ok(TcgEventType::EvPostCode),
+            0x2 => Ok(TcgEventType::EvUnused),
+            0x3 => Ok(TcgEventType::EvNoAction),
+            0x4 => Ok(TcgEventType::EvSeparator),
+            0x5 => Ok(TcgEventType::EvAction),
+            0x6 => Ok(TcgEventType::EvEventTag),
+            0x7 => Ok(TcgEventType::EvSCrtmContents),
+            0x8 => Ok(TcgEventType::EvSCrtmVersion),
+            0x9 => Ok(TcgEventType::EvCpuMicrocode),
+            0xA => Ok(TcgEventType::EvPlatformConfigFlags),
+            0xB => Ok(TcgEventType::EvTableOfDevices),
+            0xC => Ok(TcgEventType::EvCompactHash),
+            0xD => Ok(TcgEventType::EvIpl),
+            0xE => Ok(TcgEventType::EvIplPartitionData),
+            0xF => Ok(TcgEventType::EvNonhostCode),
+            0x10 => Ok(TcgEventType::EvNonhostConfig),
+            0x11 => Ok(TcgEventType::EvNonhostInfo),
+            0x12 => Ok(TcgEventType::EvOmitBootDeviceEvents),
+            0x80000000 => Ok(TcgEventType::EvEfiEventBase),
+            0x80000001 => Ok(TcgEventType::EvEfiVariableDriverConfig),
+            0x80000002 => Ok(TcgEventType::EvEfiVariableBoot),
+            0x80000003 => Ok(TcgEventType::EvEfiBootServicesApplication),
+            0x80000004 => Ok(TcgEventType::EvEfiBootServicesDriver),
+            0x80000005 => Ok(TcgEventType::EvEfiRuntimeServicesDriver),
+            0x80000006 => Ok(TcgEventType::EvEfiGptEvent),
+            0x80000007 => Ok(TcgEventType::EvEfiAction),
+            0x80000008 => Ok(TcgEventType::EvEfiPlatformFirmwareBlob),
+            0x80000009 => Ok(TcgEventType::EvEfiHandoffTables),
+            0x8000000A => Ok(TcgEventType::EvEfiPlatformFirmwareBlob2),
+            0x8000000B => Ok(TcgEventType::EvEfiHandoffTables2),
+            0x8000000C => Ok(TcgEventType::EvEfiVariableBoot2),
+            0x80000010 => Ok(TcgEventType::EvEfiHcrtmEvent),
+            0x800000E0 => Ok(TcgEventType::EvEfiVariableAuthority),
+            0x800000E1 => Ok(TcgEventType::EvEfiSpdmFirmwareBlob),
+            0x800000E2 => Ok(TcgEventType::EvEfiSpdmFirmwareConfig),
+            _ => Err(()),
+        }
+    }
 }
 
 impl TcgEventType {

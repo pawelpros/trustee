@@ -33,7 +33,7 @@ impl DescriptionParser for EvBootServicesAppParser {
 
         let device_path_bytes = &data[device_path_start..device_path_end];
         let result_data = EventDetails::empty();
-        get_nested_data(&device_path_bytes, result_data)
+        get_nested_data(device_path_bytes, result_data)
     }
 }
 
@@ -57,11 +57,11 @@ fn get_nested_data(device_path_bytes: &[u8], mut result: EventDetails) -> Result
     result.unicode_name_length = Some(vendor_data.len() as u64);
 
     // https://uefi.org/specs/UEFI/2.10/10_Protocols_Device_Path_Protocol.html#generic-device-path-node-structure
-    if device_path.len() == 0 {
+    if device_path.is_empty() {
         return Ok(result);
     }
 
-    get_nested_data(&device_path, result)
+    get_nested_data(device_path, result)
 }
 
 fn recover_string(vendor_data_raw: &[u8]) -> String {
@@ -71,7 +71,7 @@ fn recover_string(vendor_data_raw: &[u8]) -> String {
 
     let device_path: Vec<u16> = vendor_data_raw
         .chunks(2)
-        .map(|chunk| LittleEndian::read_u16(chunk))
+        .map(LittleEndian::read_u16)
         .take_while(|&x| x != 0)
         .collect();
 
@@ -85,7 +85,7 @@ pub fn is_utf16_encoded_text(data: &[u8]) -> bool {
 
     let utf16: Vec<u16> = data
         .chunks(2)
-        .map(|chunk| LittleEndian::read_u16(chunk))
+        .map(LittleEndian::read_u16)
         .take_while(|&x| x != 0)
         .collect();
 
