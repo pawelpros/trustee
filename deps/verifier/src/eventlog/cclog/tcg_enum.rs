@@ -131,7 +131,7 @@ impl TcgEventType {
             Self::EvSeparator => Box::new(EvBlankParser),
             Self::EvAction => Box::new(EvSimpleParser),
             Self::EvEventTag => Box::new(EvEventTagParser),
-            Self::EvPlatformConfigFlags => Box::new(EvSimpleParser),
+            Self::EvPlatformConfigFlags => Box::new(EvPlatformConfigFlagsParser),
             Self::EvCompactHash => Box::new(EvSimpleParser),
             Self::EvIpl => Box::new(EvSimpleParser),
             Self::EvOmitBootDeviceEvents => Box::new(EvSimpleParser),
