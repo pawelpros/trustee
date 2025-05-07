@@ -46,7 +46,7 @@ pub struct EventDetails {
         serialize_with = "serialize_json_string_vec",
         skip_serializing_if = "Option::is_none"
     )]
-    pub data: Option<Vec<String>>, // TODO NOT FULLY IMPLEMENTED AS ITA
+    pub data: Option<Vec<String>>,
 }
 
 impl EventDetails {
@@ -85,8 +85,7 @@ impl Serialize for EventlogEntry {
         state.serialize_field("digests", &self.digests)?;
         state.serialize_field("event", &self.event)?;
         state.serialize_field("index", &self.index)?;
-        // state.serialize_field("type", &format!("0x{:08X}", self.event_type as u32))?; // TODO ITA DIFFERENCE
-        state.serialize_field("type", &(self.event_type as u32))?;
+        state.serialize_field("type", &format!("0x{:08X}", self.event_type as u32))?;
         state.serialize_field("type_name", &self.event_type.format_name())?;
         state.end()
     }
@@ -179,8 +178,7 @@ fn parse_eventlog_entry(
     let event_desc_raw = data[index..(index + event_desc_size as usize)].to_vec();
     index += event_desc_size as usize;
 
-    let event = STANDARD.encode(&event_desc_raw); // TODO USE THIS ONE
-    // let event = hex::encode(&event_desc_raw);
+    let event = STANDARD.encode(&event_desc_raw);
     let event_result = event_type.get_parser().parse_description(event_desc_raw)?;
 
     Ok((
