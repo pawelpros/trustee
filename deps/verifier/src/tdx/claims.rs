@@ -4,67 +4,19 @@
 //
 
 //! This module helps parse all fields inside a TDX Quote and CCEL and
-//! serialize them into a JSON. The format will look like
-//! ```json
-//! {
-//!  "td_attributes": {
-//!    "debug": true,
-//!    "key_locker": false,
-//!    "perfmon": false,
-//!    "protection_keys": false,
-//!    "septve_disable": true
-//!  },
-//!  "ccel": {
-//!    "kernel": "5b7aa6572f649714ff00b6a2b9170516a068fd1a0ba72aa8de27574131d454e6396d3bfa1727d9baf421618a942977fa",
-//!    "kernel_parameters": {
-//!      "console": "hvc0",
-//!      "root": "/dev/vda1",
-//!      "rw": null
-//!    }
-//!  },
-//!  "quote": {
-//!    "header":{
-//!        "version": "0400",
-//!        "att_key_type": "0200",
-//!        "tee_type": "81000000",
-//!        "reserved": "00000000",
-//!        "vendor_id": "939a7233f79c4ca9940a0db3957f0607",
-//!        "user_data": "d099bfec0a477aa85a605dceabf2b10800000000"
-//!    },
-//!    "body":{
-//!        "mr_config_id": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-//!        "mr_owner": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-//!        "mr_owner_config": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-//!        "mr_td": "705ee9381b8633a9fbe532b52345e8433343d2868959f57889d84ca377c395b689cac1599ccea1b7d420483a9ce5f031",
-//!        "mrsigner_seam": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-//!        "report_data": "7c71fe2c86eff65a7cf8dbc22b3275689fd0464a267baced1bf94fc1324656aeb755da3d44d098c0c87382f3a5f85b45c8a28fee1d3bdb38342bf96671501429",
-//!        "seam_attributes": "0000000000000000",
-//!        "td_attributes": "0100001000000000",
-//!        "mr_seam": "2fd279c16164a93dd5bf373d834328d46008c2b693af9ebb865b08b2ced320c9a89b4869a9fab60fbe9d0c5a5363c656",
-//!        "tcb_svn": "03000500000000000000000000000000",
-//!        "xfam": "e742060000000000",
-//!        "rtmr_0": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-//!        "rtmr_1": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-//!        "rtmr_2": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-//!        "rtmr_3": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-//!    }
-//!  }
-//!}
-//! ```
+//! serialize them into a JSON. The format will look like example available in test data:
+//! ./test_data/parse_tdx_claims_expected.json
 
 use anyhow::Result;
 use bitflags::{bitflags, Flags};
 use byteorder::{LittleEndian, ReadBytesExt};
-use log::{debug, warn};
+use log::{debug};
 use serde_json::{Map, Value};
 use thiserror::Error;
 
 use crate::{eventlog::AAEventlog, tdx::quote::QuoteV5Body, TeeEvidenceParsedClaim};
 
-use super::{
-    eventlog::{CcEventLog, MeasuredEntity},
-    quote::Quote,
-};
+use super::{eventlog::CcEventLog, quote::Quote};
 
 macro_rules! parse_claim {
     ($map_name: ident, $key_name: literal, $field: ident) => {
@@ -176,12 +128,6 @@ pub fn generate_parsed_claim(
         }
     }
 
-    // Claims from CC EventLog.
-    let mut ccel_map = Map::new();
-    if let Some(ccel) = cc_eventlog {
-        parse_ccel(ccel, &mut ccel_map)?;
-    }
-
     let td_attributes = parse_td_attributes(quote.td_attributes())?;
 
     let mut claims = Map::new();
@@ -192,8 +138,13 @@ pub fn generate_parsed_claim(
         parse_claim!(claims, "aael", aael_map);
     }
 
+    // Claims from CC EventLog.
+    if let Some(ccel) = cc_eventlog {
+        let result = serde_json::to_value(ccel.clone().cc_events.log)?;
+        claims.insert("uefi_event_logs".to_string(), result);
+    }
+
     parse_claim!(claims, "quote", quote_map);
-    parse_claim!(claims, "ccel", ccel_map);
     parse_claim!(claims, "td_attributes", td_attributes);
 
     parse_claim!(claims, "report_data", quote.report_data());
@@ -203,82 +154,6 @@ pub fn generate_parsed_claim(
     debug!("Parsed Evidence claims map: \n{claims_str}\n");
 
     Ok(Value::Object(claims) as TeeEvidenceParsedClaim)
-}
-
-fn parse_ccel(ccel: CcEventLog, ccel_map: &mut Map<String, Value>) -> Result<()> {
-    let result = serde_json::to_value(ccel.clone().cc_events.log)?;
-    ccel_map.insert("uefi_event_logs".to_string(), result);
-
-    // Digest of kernel using td-shim
-    match ccel.query_digest(MeasuredEntity::TdShimKernel) {
-        Some(kernel_digest) => {
-            ccel_map.insert(
-                "kernel".to_string(),
-                serde_json::Value::String(kernel_digest),
-            );
-        }
-        _ => {
-            warn!("No td-shim kernel hash in CCEL");
-        }
-    }
-
-    // Digest of kernel using TDVF
-    match ccel.query_digest(MeasuredEntity::TdvfKernel) {
-        Some(kernel_digest) => {
-            ccel_map.insert(
-                "kernel".to_string(),
-                serde_json::Value::String(kernel_digest),
-            );
-        }
-        _ => {
-            warn!("No tdvf kernel hash in CCEL");
-        }
-    }
-
-    // Digest of kernel cmdline using TDVF
-    match ccel.query_digest(MeasuredEntity::TdvfKernelParams) {
-        Some(cmdline_digest) => {
-            ccel_map.insert(
-                "cmdline".to_string(),
-                serde_json::Value::String(cmdline_digest),
-            );
-        }
-        _ => {
-            warn!("No tdvf kernel cmdline hash in CCEL");
-        }
-    }
-
-    // Digest of initrd using TDVF
-    match ccel.query_digest(MeasuredEntity::TdvfInitrd) {
-        Some(initrd_digest) => {
-            ccel_map.insert(
-                "initrd".to_string(),
-                serde_json::Value::String(initrd_digest),
-            );
-        }
-        _ => {
-            warn!("No tdvf initrd hash in CCEL");
-        }
-    }
-
-    // Map of Kernel Parameters
-    match ccel.query_event_data(MeasuredEntity::TdShimKernelParams) {
-        Some(config_info) => {
-            let td_shim_platform_config_info =
-                TdShimPlatformConfigInfo::try_from(&config_info[..])?;
-
-            let parameters = parse_kernel_parameters(td_shim_platform_config_info.data)?;
-            ccel_map.insert(
-                "kernel_parameters".to_string(),
-                serde_json::Value::Object(parameters),
-            );
-        }
-        _ => {
-            warn!("No td-shim kernel parameters in CCEL");
-        }
-    }
-
-    Ok(())
 }
 
 bitflags! {
@@ -370,6 +245,7 @@ impl<'a> TryFrom<&'a [u8]> for TdShimPlatformConfigInfo<'a> {
     }
 }
 
+// TODO ADJUST ME
 fn parse_kernel_parameters(kernel_parameters: &[u8]) -> Result<Map<String, Value>> {
     let parameters_str = String::from_utf8(kernel_parameters.to_vec())?;
     debug!("kernel parameters: {parameters_str}");
@@ -397,9 +273,10 @@ fn parse_kernel_parameters(kernel_parameters: &[u8]) -> Result<Map<String, Value
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use anyhow::{anyhow, Result};
     use assert_json_diff::assert_json_eq;
-    use serde_json::{json, to_value, Map, Value};
+    use serde_json::{to_value, Map, Value};
 
     use crate::tdx::{
         claims::PlatformConfigInfoError, eventlog::CcEventLog, quote::parse_tdx_quote,
@@ -421,52 +298,16 @@ mod tests {
         let quote = parse_tdx_quote(&quote_bin).expect("parse quote");
         let ccel = CcEventLog::try_from(ccel_bin).expect("parse ccel");
         let claims = generate_parsed_claim(quote, Some(ccel), None).expect("parse claim failed");
-        let expected = json!({
-            "td_attributes": {
-                "debug": true,
-                "key_locker": false,
-                "perfmon": false,
-                "protection_keys": false,
-                "septve_disable": true
-            },
-            "ccel": {
-                "kernel": "5b7aa6572f649714ff00b6a2b9170516a068fd1a0ba72aa8de27574131d454e6396d3bfa1727d9baf421618a942977fa",
-                "kernel_parameters": {
-                    "console": "hvc0",
-                    "root": "/dev/vda1",
-                    "rw": null
-                }
-            },
-            "quote": {
-                "header":{
-                    "version": "0400",
-                    "att_key_type": "0200",
-                    "tee_type": "81000000",
-                    "reserved": "00000000",
-                    "vendor_id": "939a7233f79c4ca9940a0db3957f0607",
-                    "user_data": "d099bfec0a477aa85a605dceabf2b10800000000"
-                },
-                "body":{
-                    "mr_config_id": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-                    "mr_owner": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-                    "mr_owner_config": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-                    "mr_td": "705ee9381b8633a9fbe532b52345e8433343d2868959f57889d84ca377c395b689cac1599ccea1b7d420483a9ce5f031",
-                    "mrsigner_seam": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-                    "report_data": "7c71fe2c86eff65a7cf8dbc22b3275689fd0464a267baced1bf94fc1324656aeb755da3d44d098c0c87382f3a5f85b45c8a28fee1d3bdb38342bf96671501429",
-                    "seam_attributes": "0000000000000000",
-                    "td_attributes": "0100001000000000",
-                    "mr_seam": "2fd279c16164a93dd5bf373d834328d46008c2b693af9ebb865b08b2ced320c9a89b4869a9fab60fbe9d0c5a5363c656",
-                    "tcb_svn": "03000500000000000000000000000000",
-                    "xfam": "e742060000000000",
-                    "rtmr_0": "e940da7c2712d2790e2961e00484f4fa8e6f9eed71361655ae22699476b14f9e63867eb41edd4b480fef0c59f496b288",
-                    "rtmr_1": "559cfcf42716ed6c40a48a73d5acb7da255435012f0a9f00fbe8c1c57612ede486a5684c4c9ff3ddf52315fcdca3a596",
-                    "rtmr_2": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-                    "rtmr_3": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-                }
-            },
-            "init_data": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-            "report_data": "7c71fe2c86eff65a7cf8dbc22b3275689fd0464a267baced1bf94fc1324656aeb755da3d44d098c0c87382f3a5f85b45c8a28fee1d3bdb38342bf96671501429"
-        });
+        let expected_json_str = std::fs::read_to_string("./test_data/parse_tdx_claims_expected.json")
+            .expect("read expected json output failed");
+        let expected: Value = serde_json::from_str(&expected_json_str)
+            .expect("parsing expected json failed");
+
+        // TODO REMOVE DEBUG DUMP
+        // let _ = fs::write(
+        //     "./test_data/my_test.json",
+        //     serde_json::to_string_pretty(&claims).expect("serialize ccel events"),
+        // );
 
         assert_json_eq!(expected, claims);
     }
