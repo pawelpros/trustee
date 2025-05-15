@@ -119,12 +119,27 @@ hardware := 2 if {
 	# attester_advisory_ids := {id | id := input.tdx.advisory_ids[_]} # convert array to set
 	# intersection := attester_advisory_ids & disallowed_advisory_ids
 	# count(intersection) == 0
+
+	# tdx_event_digest_ok
 }
 
 configuration := 2 if {
 	# Check the TD has the expected attributes (e.g., debug not enabled) and features.
 	input.tdx.td_attributes.debug == false
 	input.tdx.quote.body.xfam in data.reference.xfam
+}
+
+# Custom rule: Check EV_EFI_VARIABLE_BOOT with specific SHA-384 digest exists
+tdx_event_digest_ok := true if {
+	event := input.tdx.uefi_event_logs[_]
+	event.type_name == "EV_EFI_VARIABLE_BOOT"
+
+	digest := event.digests[_]
+	digest.alg == "SHA-384"
+	digest.digest == "23ada07f5261f12f34a0bd8e46760962d6b4d576a416f1fea1c64bc656b1d28eacf7047ae6e967c58fd2a98bfa74c298"
+
+	details := event.details
+	details.unicode_name == "Boot0000"
 }
 
 ##### AZ SNP TODO
