@@ -1,4 +1,4 @@
-use ::eventlog::{ccel::tcg_enum::TcgAlgorithm, CcEventLog, ReferenceMeasurement};
+use ::eventlog::{TcgAlgorithm, CcEventLog, ReferenceMeasurement};
 use std::str::FromStr;
 
 use anyhow::anyhow;

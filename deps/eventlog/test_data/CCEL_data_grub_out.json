@@ -333,7 +333,7 @@
     {
       "details": {
         "device_paths": [
-          "Path(2,1,d041030a00000000)",
+          "ACPI(PNP0A03,0)",
           "Pci(0,1)",
           "Pci(0,0)",
           "Pci(0,1)",
@@ -456,7 +456,7 @@
     {
       "details": {
         "device_paths": [
-          "Path(2,1,d041030a00000000)",
+          "ACPI(PNP0A03,0)",
           "Pci(0,1)",
           "Pci(0,0)",
           "Pci(0,1)",

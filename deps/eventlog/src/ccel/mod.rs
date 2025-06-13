@@ -9,6 +9,7 @@ mod ipl;
 mod platform_config_flags;
 mod simple;
 mod simple_string;
+mod device_paths;
 
 pub(crate) use blank::EvBlankParser;
 pub(crate) use boot_services_app::EvBootServicesAppParser;

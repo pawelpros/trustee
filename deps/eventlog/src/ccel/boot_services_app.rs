@@ -1,7 +1,5 @@
-use super::{EventDataParser, EventDetails};
+use super::{EventDataParser, EventDetails, device_paths::DevicePathType};
 use anyhow::{bail, Result};
-use byteorder::{ByteOrder, LittleEndian};
-use scroll::Pread;
 
 pub struct EvBootServicesAppParser;
 
@@ -76,29 +74,17 @@ fn get_nested_paths(device_path_bytes: &[u8], mut result: EventDetails) -> Resul
 /// <https://uefi.org/specs/UEFI/2.10/10_Protocols_Device_Path_Protocol.html#text-device-node-reference>
 /// TODO Implement full support for data paths available for device nodes
 fn print_path(efi_type: u8, efi_sub_type: u8, vendor_data: &[u8]) -> String {
-    // Type: 1 (Hardware Device Path) / SubType: 1 (PCI)
-    if efi_type == 1 && efi_sub_type == 1 {
-        let func_num = vendor_data.pread::<u8>(0).unwrap();
-        let device_num = vendor_data.pread::<u8>(1).unwrap();
-        return format!("Pci({},{})", func_num, device_num);
+    match DevicePathType::from(efi_type).get_parser().parse(efi_sub_type, vendor_data) {
+        Ok(text) => text,
+        Err(_) => {
+            format!(
+                "Path({},{},{})",
+                efi_type,
+                efi_sub_type,
+                hex::encode(vendor_data)
+            )
+        }
     }
-
-    // Type: 4 (Media Device Path) / SubType: 4 (File Path)
-    if efi_type == 4 && efi_sub_type == 4 {
-        let utf16_words: Vec<u16> = vendor_data[0..vendor_data.len() - 2]
-            .chunks_exact(2)
-            .map(LittleEndian::read_u16)
-            .collect();
-        return format!("File({})", String::from_utf16_lossy(&utf16_words));
-    }
-
-    // Default formatting for not recognized/unsupported type & subtype
-    format!(
-        "Path({},{},{})",
-        efi_type,
-        efi_sub_type,
-        hex::encode(vendor_data)
-    )
 }
 
 #[cfg(test)]
@@ -111,7 +97,7 @@ mod tests {
         EventDetails { string: None, unicode_name: None, unicode_name_length: None, variable_data: None, variable_data_length: None, variable_name: None, device_paths: Some(vec!["Path(4,3,72f728144ab61e44b8c39ebdd7f893c7)".to_string(), "File(kernel)".to_string()]), data: None }
     )]
     #[case("18406a7d0000000008c00e00000000000000000000000000820000000000000002010c00d041030a0000000001010600000101010600000001010600000101010600000004012a000f000000002800000000000000500300000000005e27f1007553d5439eb5de2add4c99320202040430005c004500460049005c0042004f004f0054005c0042004f004f0054005800360034002e0045004600490000007fff0400",
-        EventDetails { string: None, unicode_name: None, unicode_name_length: None, variable_data: None, variable_data_length: None, variable_name: None, device_paths: Some(vec!["Path(2,1,d041030a00000000)".to_string(), "Pci(0,1)".to_string(), "Pci(0,0)".to_string(), "Pci(0,1)".to_string(), "Pci(0,0)".to_string(), "Path(4,1,0f000000002800000000000000500300000000005e27f1007553d5439eb5de2add4c99320202)".to_string(), "File(\\EFI\\BOOT\\BOOTX64.EFI)".to_string()]), data: None }
+        EventDetails { string: None, unicode_name: None, unicode_name_length: None, variable_data: None, variable_data_length: None, variable_name: None, device_paths: Some(vec!["ACPI(PNP0A03,0)".to_string(), "Pci(0,1)".to_string(), "Pci(0,0)".to_string(), "Pci(0,1)".to_string(), "Pci(0,0)".to_string(), "Path(4,1,0f000000002800000000000000500300000000005e27f1007553d5439eb5de2add4c99320202)".to_string(), "File(\\EFI\\BOOT\\BOOTX64.EFI)".to_string()]), data: None }
     )]
     #[case(
         "009d9b7a000000008879e4000000000000000000000000000000000000000000",
