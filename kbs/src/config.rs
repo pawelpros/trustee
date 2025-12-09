@@ -296,7 +296,8 @@ mod tests {
             admin_backend: AdminBackendType::Simple(SimpleAdminConfig {
                 personas: vec![SimplePersonaConfig {
                     id: "admin1".to_string(),
-                    public_key_path: "/opt/confidential-containers/trustee/admin1-pubkey.pem".into()
+                    public_key_path: "/opt/confidential-containers/trustee/admin1-pubkey.pem".into(),
+                    key_type: Default::default()
                 }],
             }),
         },

@@ -29,8 +29,13 @@ key_file="${k8s_cnf_dir}/${OVERLAYS_DIR}/key.bin"
 # Create a file kbs.pem if it does not exist.
 kbs_cert="${k8s_cnf_dir}/base/kbs.pem"
 [[ -f "${kbs_cert}" ]] || {
-    openssl genpkey -algorithm ed25519 >"${k8s_cnf_dir}/base/kbs.key"
-    openssl pkey -in "${k8s_cnf_dir}/base/kbs.key" -pubout -out "${kbs_cert}"
+    kbs_key="${k8s_cnf_dir}/base/kbs.key"
+    openssl genpkey -algorithm ed25519 >"${kbs_key}"
+    openssl pkey -in "${kbs_key}" -pubout -out "${kbs_cert}"
+
+    # Alternative supported key algorithm
+    # openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-384 -out "${kbs_key}"
+    # openssl pkey -in "${kbs_key}" -pubout -out "${kbs_cert}"
 }
 
 # Enable the nvidia remote verifier if requested.
