@@ -7,13 +7,14 @@
 use anyhow::{anyhow, bail, Result};
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine;
-use jwt_simple::prelude::{Claims, Duration, Ed25519KeyPair, EdDSAKeyPairLike};
 use kbs_protocol::evidence_provider::NativeEvidenceProvider;
 use kbs_protocol::token_provider::TestTokenProvider;
 use kbs_protocol::KbsClientBuilder;
 use kbs_protocol::KbsClientCapabilities;
 use serde::Serialize;
 use serde_json::json;
+
+mod keys;
 
 const KBS_URL_PREFIX: &str = "kbs/v0";
 
@@ -134,10 +135,7 @@ pub async fn set_attestation_policy(
     policy_id: Option<String>,
     kbs_root_certs_pem: Vec<String>,
 ) -> Result<()> {
-    let auth_private_key = Ed25519KeyPair::from_pem(&auth_key)?;
-    let claims = Claims::create(Duration::from_hours(2));
-    let token = auth_private_key.sign(claims)?;
-
+    let token = keys::build_token(&auth_key)?;
     let http_client = build_http_client(kbs_root_certs_pem)?;
 
     let set_policy_url = format!("{}/{KBS_URL_PREFIX}/attestation-policy", url);
@@ -180,10 +178,7 @@ pub async fn set_resource_policy(
     policy_bytes: Vec<u8>,
     kbs_root_certs_pem: Vec<String>,
 ) -> Result<()> {
-    let auth_private_key = Ed25519KeyPair::from_pem(&auth_key)?;
-    let claims = Claims::create(Duration::from_hours(2));
-    let token = auth_private_key.sign(claims)?;
-
+    let token = keys::build_token(&auth_key)?;
     let http_client = build_http_client(kbs_root_certs_pem)?;
 
     let set_policy_url = format!("{}/{KBS_URL_PREFIX}/resource-policy", url);
@@ -219,10 +214,7 @@ pub async fn set_resource(
     path: &str,
     kbs_root_certs_pem: Vec<String>,
 ) -> Result<()> {
-    let auth_private_key = Ed25519KeyPair::from_pem(&auth_key)?;
-    let claims = Claims::create(Duration::from_hours(2));
-    let token = auth_private_key.sign(claims)?;
-
+    let token = keys::build_token(&auth_key)?;
     let http_client = build_http_client(kbs_root_certs_pem)?;
 
     let resource_url = format!("{}/{KBS_URL_PREFIX}/resource/{}", url, path);
@@ -251,10 +243,7 @@ pub async fn set_sample_rv(
     auth_key: String,
     kbs_root_certs_pem: Vec<String>,
 ) -> Result<()> {
-    let auth_private_key = Ed25519KeyPair::from_pem(&auth_key)?;
-    let claims = Claims::create(Duration::from_hours(2));
-    let token = auth_private_key.sign(claims)?;
-
+    let token = keys::build_token(&auth_key)?;
     let http_client = build_http_client(kbs_root_certs_pem)?;
 
     let reference_value_url = format!("{}/{KBS_URL_PREFIX}/reference-value", url);
@@ -289,10 +278,7 @@ pub async fn get_rvs(
     auth_key: String,
     kbs_root_certs_pem: Vec<String>,
 ) -> Result<String> {
-    let auth_private_key = Ed25519KeyPair::from_pem(&auth_key)?;
-    let claims = Claims::create(Duration::from_hours(2));
-    let token = auth_private_key.sign(claims)?;
-
+    let token = keys::build_token(&auth_key)?;
     let http_client = build_http_client(kbs_root_certs_pem)?;
 
     let reference_value_url = format!("{}/{KBS_URL_PREFIX}/reference-value", url);

@@ -58,10 +58,18 @@ Refer to [ibm-s390-linux](https://github.com/ibm-s390-linux/s390-tools/blob/v2.3
 
 ## Generate KBS key
 Generate keys used by KBS service.
-```bash
-openssl genpkey -algorithm ed25519 > kbs.key
-openssl pkey -in kbs.key -pubout -out kbs.pem
-```
+
+1. Using Edwards-curve Digital Signature Algorithm (EdDSA) ed25519
+    ```bash
+    openssl genpkey -algorithm ed25519 > kbs.key
+    openssl pkey -in kbs.key -pubout -out kbs.pem
+    ```
+
+2. Elliptic curve (EC) P-384
+    ```bash
+    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-384 -out kbs.key
+    openssl pkey -in kbs.key -pubout -out kbs.pem
+    ```
 
 ## (Option 1) Launch KBS as a program
 

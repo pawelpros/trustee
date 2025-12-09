@@ -192,17 +192,17 @@ and `Simple`.
 By default, the simple backend will be used, but no personas will be enabled.
 Use the `type` field to set the admin backend.
 
-| Property          | Type    | Description                                                       | Required | Default |
-|-------------------|---------|-------------------------------------------------------------------|----------|---------|
-| `type`            | String  | The backend used to validate admiin requests.                     | No       | Simple  |
+| Property          | Type    | Description                                  | Required | Default |
+|-------------------|---------|----------------------------------------------|----------|---------|
+| `type`            | String  | The backend used to validate admin requests. | No       | Simple  |
 
 If the `Simple` backend is used, a list of admin personas can be provided, each with the following properties:
 
-| Property          | Type    | Description                                                       | Required | Default |
-|-------------------|---------|-------------------------------------------------------------------|----------|---------|
-| `id`              | String  | A string used to identify the admin.                              | Yes      | Simple  |
-| `public_key_path` | String  | The path to the public key corresponding to the admin token.      | Yes      | Simple  |
-
+| Property          | Type   | Description                                                  | Required | Default |
+|-------------------|--------|--------------------------------------------------------------|----------|---------|
+| `id`              | String | A string used to identify the admin.                         | Yes      | Simple  |
+| `public_key_path` | String | The path to the public key corresponding to the admin token. | Yes      | Simple  |
+| `key_type`        | String | `EdDSA` for Ed25519 or `ES384` for P384                      | No       | EdDSA   |
 
 ### Policy Engine Configuration
 
