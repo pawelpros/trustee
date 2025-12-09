@@ -195,6 +195,7 @@ impl TestHarness {
                     personas: vec![SimplePersonaConfig {
                         id: "tester".to_string(),
                         public_key_path: auth_pubkey_path.as_path().to_path_buf(),
+                        key_type: Default::default(),
                     }],
                 }),
             },

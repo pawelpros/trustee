@@ -97,6 +97,7 @@ fn get_config(
             config.personas.push(SimplePersonaConfig {
                 id: "admin".to_string(),
                 public_key_path: public_path,
+                key_type: Default::default(),
             });
         }
     }
