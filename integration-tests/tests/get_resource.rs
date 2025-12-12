@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::{anyhow, bail, Result};
+use integration_tests::common::DEFAULT_PERSONA;
 use log::info;
 use rstest::rstest;
 use serde_json::{json, Value};
@@ -143,7 +144,7 @@ async fn get_secret(
 
     // Set Policy
     info!("TEST: setting policy");
-    harness.set_policy(policy).await?;
+    harness.set_policy(DEFAULT_PERSONA, policy).await?;
 
     harness
         .set_attestation_policy(
