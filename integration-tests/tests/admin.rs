@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::{bail, Result};
+use integration_tests::common::{DEFAULT_PERSONA, PERSONA_P384};
 use log::info;
 use openssl::pkey::PKey;
 use rstest::rstest;
@@ -16,12 +17,21 @@ use crate::integration_tests::common::{KbsConfigType, PolicyType, TestHarness};
 // and with the wrong admin private key.
 //
 #[rstest]
-#[case::set_policy_with_valid_key(KbsConfigType::EarTokenBuiltInRvps, true)]
-#[case::set_policy_with_invalid_key(KbsConfigType::EarTokenBuiltInRvps, false)]
-#[case::set_policy_with_deny_admin_backend(KbsConfigType::EarTokenBuiltInRvpsDenyAllAdmin, false)]
+#[case::set_policy_with_valid_key(KbsConfigType::EarTokenBuiltInRvps, DEFAULT_PERSONA, true)]
+#[case::set_policy_with_valid_p384_key(KbsConfigType::EarTokenBuiltInRvps, PERSONA_P384, true)]
+#[case::set_policy_with_invalid_key(KbsConfigType::EarTokenBuiltInRvps, DEFAULT_PERSONA, false)]
+#[case::set_policy_with_deny_admin_backend(
+    KbsConfigType::EarTokenBuiltInRvpsDenyAllAdmin,
+    DEFAULT_PERSONA,
+    false
+)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[serial]
-async fn set_policy(#[case] test_config: KbsConfigType, #[case] valid_key: bool) -> Result<()> {
+async fn set_policy(
+    #[case] test_config: KbsConfigType,
+    #[case] persona_id: &str,
+    #[case] valid_key: bool,
+) -> Result<()> {
     let _ = env_logger::try_init_from_env(env_logger::Env::new().default_filter_or("debug"));
 
     let mut harness = TestHarness::new(test_config.clone().into()).await?;
@@ -33,11 +43,13 @@ async fn set_policy(#[case] test_config: KbsConfigType, #[case] valid_key: bool)
         let auth_keypair = PKey::generate_ed25519()?;
         let auth_privkey = String::from_utf8(auth_keypair.private_key_to_pem_pkcs8()?)?;
 
-        harness.auth_privkey = auth_privkey;
+        harness
+            .auth_privkeys
+            .insert(persona_id.to_string(), auth_privkey);
     }
 
     info!("TEST: setting policy");
-    let res = harness.set_policy(PolicyType::AllowAll).await;
+    let res = harness.set_policy(persona_id, PolicyType::AllowAll).await;
 
     harness.cleanup().await?;
     if !valid_key {
@@ -96,7 +108,9 @@ async fn set_attestation_policy(
         let auth_keypair = PKey::generate_ed25519()?;
         let auth_privkey = String::from_utf8(auth_keypair.private_key_to_pem_pkcs8()?)?;
 
-        harness.auth_privkey = auth_privkey;
+        harness
+            .auth_privkeys
+            .insert(DEFAULT_PERSONA.to_string(), auth_privkey);
     }
 
     info!("TEST: setting attestation policy");
@@ -162,7 +176,9 @@ async fn set_secret(#[case] test_config: KbsConfigType, #[case] valid_key: bool)
         let auth_keypair = PKey::generate_ed25519()?;
         let auth_privkey = String::from_utf8(auth_keypair.private_key_to_pem_pkcs8()?)?;
 
-        harness.auth_privkey = auth_privkey;
+        harness
+            .auth_privkeys
+            .insert(DEFAULT_PERSONA.to_string(), auth_privkey);
     }
 
     info!("TEST: setting secret");

@@ -12,6 +12,7 @@ use kbs::config::KbsConfig;
 use kbs::policy_engine::PolicyEngineConfig;
 use kbs::token::AttestationTokenVerifierConfig;
 use kbs::ApiServer;
+use std::collections::HashMap;
 
 use kbs::plugins::{
     implementations::{resource::local_fs::LocalFsRepoDesc, RepositoryConfig},
@@ -35,7 +36,10 @@ use base64::{
     engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
     Engine,
 };
+use kbs::admin::simple::KeyType;
 use log::info;
+use openssl::ec::{EcGroup, EcKey};
+use openssl::nid::Nid;
 use openssl::pkey::PKey;
 use serde_json::json;
 use std::sync::Arc;
@@ -46,6 +50,9 @@ use tonic::transport::Server;
 const KBS_URL: &str = "http://127.0.0.1:8081";
 const RVPS_URL: &str = "http://127.0.0.1:51003";
 const WAIT_TIME: u64 = 5000;
+
+pub const DEFAULT_PERSONA: &str = "tester";
+pub const PERSONA_P384: &str = "userp384";
 
 const ALLOW_ALL_POLICY: &str = "
     package policy
@@ -111,7 +118,7 @@ pub struct TestParameters {
 /// Internal state of tests
 pub struct TestHarness {
     pub kbs_config: KbsConfig,
-    pub auth_privkey: String,
+    pub auth_privkeys: HashMap<String, String>,
     kbs_server_handle: actix_web::dev::ServerHandle,
     _work_dir: TempDir,
 
@@ -121,9 +128,17 @@ pub struct TestHarness {
 
 impl TestHarness {
     pub async fn new(test_parameters: TestParameters) -> Result<TestHarness> {
+        // Keys for DEFAULT_PERSONA
         let auth_keypair = PKey::generate_ed25519()?;
         let auth_pubkey = String::from_utf8(auth_keypair.public_key_to_pem()?)?;
         let auth_privkey = String::from_utf8(auth_keypair.private_key_to_pem_pkcs8()?)?;
+
+        // Keys for PERSONA_P384
+        let group = EcGroup::from_curve_name(Nid::SECP384R1)?;
+        let ec_key = EcKey::generate(&group)?;
+        let auth_keypair_p384 = PKey::from_ec_key(ec_key)?;
+        let auth_pubkey_p384 = String::from_utf8(auth_keypair_p384.public_key_to_pem()?)?;
+        let auth_privkey_p384 = String::from_utf8(auth_keypair_p384.private_key_to_pem_pkcs8()?)?;
 
         let work_dir = TempDir::new()?;
         let resource_dir = work_dir
@@ -146,8 +161,10 @@ impl TestHarness {
             .into_string()
             .map_err(|e| anyhow!("Failed to join reference values path: {:?}", e))?;
         let auth_pubkey_path = work_dir.path().join("auth_pubkey");
+        let auth_pubkey_path_p384 = work_dir.path().join("auth_pubkey_p384");
 
         tokio::fs::write(auth_pubkey_path.clone(), auth_pubkey.as_bytes()).await?;
+        tokio::fs::write(auth_pubkey_path_p384.clone(), auth_pubkey_p384.as_bytes()).await?;
 
         let attestation_token_config = EarTokenConfiguration {
             policy_dir: as_policy_dir,
@@ -192,11 +209,18 @@ impl TestHarness {
         let admin_config = match &test_parameters.admin_type {
             AdminType::Simple => AdminConfig {
                 admin_backend: AdminBackendType::Simple(SimpleAdminConfig {
-                    personas: vec![SimplePersonaConfig {
-                        id: "tester".to_string(),
-                        public_key_path: auth_pubkey_path.as_path().to_path_buf(),
-                        key_type: Default::default(),
-                    }],
+                    personas: vec![
+                        SimplePersonaConfig {
+                            id: DEFAULT_PERSONA.to_string(),
+                            public_key_path: auth_pubkey_path.as_path().to_path_buf(),
+                            key_type: Default::default(),
+                        },
+                        SimplePersonaConfig {
+                            id: PERSONA_P384.to_string(),
+                            public_key_path: auth_pubkey_path_p384.as_path().to_path_buf(),
+                            key_type: KeyType::ES384,
+                        },
+                    ],
                 }),
             },
             AdminType::DenyAll => AdminConfig {
@@ -248,7 +272,12 @@ impl TestHarness {
 
         Ok(TestHarness {
             kbs_config,
-            auth_privkey,
+            auth_privkeys: {
+                let mut map = HashMap::new();
+                map.insert(DEFAULT_PERSONA.to_string(), auth_privkey);
+                map.insert(PERSONA_P384.to_string(), auth_privkey_p384);
+                map
+            },
             kbs_server_handle: kbs_handle,
             _work_dir: work_dir,
             _test_parameters: test_parameters,
@@ -261,7 +290,7 @@ impl TestHarness {
         Ok(())
     }
 
-    pub async fn set_policy(&self, policy: PolicyType) -> Result<()> {
+    pub async fn set_policy(&self, persona_id: &str, policy: PolicyType) -> Result<()> {
         info!("TEST: Setting Resource Policy");
 
         let policy_bytes = match policy {
@@ -272,7 +301,7 @@ impl TestHarness {
 
         kbs_client::set_resource_policy(
             KBS_URL,
-            self.auth_privkey.clone(),
+            self.auth_privkeys.get(persona_id).unwrap().clone(),
             policy_bytes,
             // Optional HTTPS certs for KBS
             vec![],
@@ -285,7 +314,7 @@ impl TestHarness {
     pub async fn set_attestation_policy(&self, policy: String, policy_id: String) -> Result<()> {
         kbs_client::set_attestation_policy(
             KBS_URL,
-            self.auth_privkey.clone(),
+            self.auth_privkeys.get(DEFAULT_PERSONA).unwrap().clone(),
             policy.as_bytes().to_vec(),
             None, // Policy type (default is rego)
             Some(policy_id),
@@ -300,7 +329,7 @@ impl TestHarness {
         info!("TEST: Setting Secret");
         kbs_client::set_resource(
             KBS_URL,
-            self.auth_privkey.clone(),
+            self.auth_privkeys.get(DEFAULT_PERSONA).unwrap().clone(),
             secret_bytes,
             &secret_path,
             // Optional HTTPS certs for KBS

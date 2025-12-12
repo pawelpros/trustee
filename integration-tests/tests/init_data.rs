@@ -4,6 +4,7 @@
 
 use anyhow::{anyhow, bail, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
+use integration_tests::common::DEFAULT_PERSONA;
 use log::info;
 use serde_json::json;
 use serial_test::serial;
@@ -41,7 +42,7 @@ async fn get_resource_with_init_data_hash() -> Result<()> {
 
     info!("TEST: setting policy");
     harness
-        .set_policy(PolicyType::Custom(static_policy))
+        .set_policy(DEFAULT_PERSONA, PolicyType::Custom(static_policy))
         .await?;
 
     // Get Secret
@@ -98,7 +99,10 @@ async fn get_resource_with_init_data_config() -> Result<()> {
     // Set Policy
     info!("TEST: setting policy");
     harness
-        .set_policy(PolicyType::Custom(INIT_DATA_CONFIG_FIELD_POLICY))
+        .set_policy(
+            DEFAULT_PERSONA,
+            PolicyType::Custom(INIT_DATA_CONFIG_FIELD_POLICY),
+        )
         .await?;
 
     // Get Secret
@@ -210,7 +214,7 @@ async fn get_resource_with_policy_init_data() -> Result<()> {
     // Set Policy
     info!("TEST: setting policy");
     harness
-        .set_policy(PolicyType::Custom(INIT_DATA_FOR_OPA_POLICY))
+        .set_policy(DEFAULT_PERSONA, PolicyType::Custom(INIT_DATA_FOR_OPA_POLICY))
         .await?;
 
     // Get Secret
