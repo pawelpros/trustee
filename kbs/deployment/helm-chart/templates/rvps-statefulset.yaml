@@ -40,7 +40,10 @@ spec:
             - "0.0.0.0:{{ .Values.rvps.service.port }}"
           env:
             - name: RUST_LOG
-              value: {{ .Values.log_level }}
+              value: {{ .Values.log_level | quote }}
+            {{- with .Values.rvps.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           ports:
             - name: tcp
               containerPort: {{ .Values.rvps.service.port }}

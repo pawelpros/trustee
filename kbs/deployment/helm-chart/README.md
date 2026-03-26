@@ -70,19 +70,20 @@ The following table lists the configurable parameters and their default values:
 
 ### KBS Configuration
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `kbs.replicaCount` | Number of KBS replicas | `1` |
+| Parameter | Description | Default                                                     |
+|-----------|-------------|-------------------------------------------------------------|
+| `kbs.replicaCount` | Number of KBS replicas | `1`                                                         |
 | `kbs.image.repository` | KBS image repository | `ghcr.io/confidential-containers/staged-images/kbs-grpc-as` |
-| `kbs.image.tag` | KBS image tag | `latest` |
-| `kbs.service.type` | KBS service type | `LoadBalancer` |
-| `kbs.service.port` | KBS service port | `8080` |
-| `kbs.userKeysSecretName` | Secret name for user keys (empty for auto-generation) | `""` |
-| `kbs.autoGenerateKeys` | Enable auto-generation of keys via initContainer | `true` |
-| `kbs.storage.enabled` | Enable persistent storage for KBS | `true` |
-| `kbs.storage.size` | Storage size | `1Gi` |
-| `kbs.storage.storageClass` | Storage class name | `standard` |
-| `kbs.storage.accessMode` | Access mode | `ReadWriteOnce` |
+| `kbs.image.tag` | KBS image tag | `latest`                                                    |
+| `kbs.service.type` | KBS service type | `LoadBalancer`                                              |
+| `kbs.service.port` | KBS service port | `8080`                                                      |
+| `kbs.env` | Extra environment variables for the KBS container | `[]`                                                       |
+| `kbs.userKeysSecretName` | Secret name for user keys (empty for auto-generation) | `""`                                                        |
+| `kbs.autoGenerateKeys` | Enable auto-generation of keys via initContainer | `true`                                                      |
+| `kbs.storage.enabled` | Enable persistent storage for KBS | `true`                                                      |
+| `kbs.storage.size` | Storage size | `1Gi`                                                       |
+| `kbs.storage.storageClass` | Storage class name | `standard`                                                  |
+| `kbs.storage.accessMode` | Access mode | `ReadWriteOnce`                                             |
 
 ### AS Configuration
 
@@ -93,6 +94,7 @@ The following table lists the configurable parameters and their default values:
 | `as.image.tag` | AS image tag | `latest` |
 | `as.service.type` | AS service type | `ClusterIP` |
 | `as.service.port` | AS service port | `50004` |
+| `as.env` | Extra environment variables for the AS container | `[]` |
 | `as.storage.enabled` | Enable persistent storage for AS | `true` |
 | `as.storage.size` | Storage size | `1Gi` |
 | `as.storage.storageClass` | Storage class name | `standard` |
@@ -107,6 +109,7 @@ The following table lists the configurable parameters and their default values:
 | `rvps.image.tag` | RVPS image tag | `latest` |
 | `rvps.service.type` | RVPS service type | `ClusterIP` |
 | `rvps.service.port` | RVPS service port | `50003` |
+| `rvps.env` | Extra environment variables for the RVPS container | `[]` |
 | `rvps.storage.enabled` | Enable persistent storage for RVPS | `true` |
 | `rvps.storage.size` | Storage size | `1Gi` |
 | `rvps.storage.storageClass` | Storage class name | `standard` |
@@ -200,3 +203,34 @@ Configuration files are stored as templates in the `files/` directory:
 - `sgx_default_qcnl.conf`: Intel SGX/TDX configuration
 
 These templates support Helm template syntax for dynamic configuration. You can modify these files to customize the deployment.
+
+## Environment Variables Override
+
+Container-specific environment variables are configurable from `values.yaml`.
+
+Example:
+
+```yaml
+kbs:
+  env:
+    - name: https_proxy
+      value: http://proxy.example.com:3128
+    - name: no_proxy
+      value: localhost,127.0.0.1,.svc
+
+as:
+  env:
+    - name: https_proxy
+      value: http://proxy.example.com:3128
+```
+
+If you want to disable the default proxy completely, override the list with an empty array:
+
+```yaml
+kbs:
+  env: []
+
+as:
+  env: []
+```
+

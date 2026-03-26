@@ -32,7 +32,7 @@ spec:
           image: alpine/openssl:latest
           imagePullPolicy: IfNotPresent
           command:
-            - /bin/ash
+            - /bin/bash
             - -c
             - |
               set -e
@@ -75,7 +75,10 @@ spec:
             - "/etc/kbs/kbs-config.toml"
           env:
             - name: RUST_LOG
-              value: {{ .Values.log_level }}
+              value: {{ .Values.log_level | quote }}
+            {{- with .Values.kbs.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.kbs.service.port }}

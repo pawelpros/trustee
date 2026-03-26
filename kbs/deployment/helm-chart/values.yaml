@@ -30,6 +30,7 @@ kbs:
     port: 8080
     loadBalancerType: intranet
   resources: {}
+  env: []
   nodeSelector: {}
   tolerations: []
   storage:
@@ -59,6 +60,7 @@ as:
     port: 50004
     loadBalancerType: intranet
   resources: {}
+  env: []
   nodeSelector: {}
   tolerations: []
   storage:
@@ -88,6 +90,7 @@ rvps:
     port: 50003
     loadBalancerType: intranet
   resources: {}
+  env: []
   nodeSelector: {}
   tolerations: []
   storage:

@@ -26,6 +26,36 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.as.podSecurityContext | nindent 8 }}
+      {{- if and .Values.kbs.autoGenerateKeys (not .Values.kbs.userKeysSecretName) }}
+      initContainers:
+        - name: setup-keys
+          image: alpine/openssl:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              KEY_DIR="/opt/confidential-containers/kbs/user-keys"
+
+              # Generate token-related keys if they don't exist
+              cd "$KEY_DIR"
+              if [ ! -s token.key ]; then
+                echo "Generating token keys..."
+                openssl genrsa -traditional -out ca.key 2048
+                openssl req -new -key ca.key -out ca-req.csr -subj "/O=CNCF/OU=CoCo/CN=KBS-compose-root"
+                openssl req -x509 -days 3650 -key ca.key -in ca-req.csr -out ca-cert.pem
+                openssl ecparam -name prime256v1 -genkey -noout -out token.key
+                openssl req -new -key token.key -out token-req.csr -subj "/O=CNCF/OU=CoCo/CN=CoCo-AS"
+                openssl x509 -req -in token-req.csr -CA ca-cert.pem -CAkey ca.key -CAcreateserial -out token-cert.pem -extensions req_ext
+                cat token-cert.pem ca-cert.pem > token-cert-chain.pem
+              fi
+
+              echo "Key generation completed"
+          volumeMounts:
+            - name: user-keys
+              mountPath: /opt/confidential-containers/kbs/user-keys
+      {{- end }}
       containers:
         - name: as
           securityContext:
@@ -40,7 +70,10 @@ spec:
             - "/etc/attestation-service/config.json"
           env:
             - name: RUST_LOG
-              value: {{ .Values.log_level }}
+              value: {{ .Values.log_level | quote }}
+            {{- with .Values.as.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           ports:
             - name: tcp
               containerPort: {{ .Values.as.service.port }}
@@ -68,10 +101,15 @@ spec:
             name: sgx-config
         - name: policy
           emptyDir: {}
+        {{- if .Values.kbs.userKeysSecretName }}
         - name: user-keys
           secret:
             optional: true
-            secretName: {{ .Values.kbs.userKeysSecretName }}
+            secretName: {{ .Values.kbs.userKeysSecretName | quote }}
+        {{- else if .Values.kbs.autoGenerateKeys }}
+        - name: user-keys
+          emptyDir: {}
+        {{- end }}
   {{- if not .Values.as.storage.enabled }}
         - name: data
           emptyDir: {}
