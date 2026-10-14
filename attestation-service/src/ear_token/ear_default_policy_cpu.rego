@@ -217,7 +217,23 @@ configuration := 2 if {
 
 	# Check the TD has the expected attributes (e.g., debug not enabled) and features.
 	input.tdx.td_attributes.debug == false
+	not tdx_attributes_conflict(input.tdx.td_attributes)
 	input.tdx.quote.body.xfam in query_reference_value("xfam")
+}
+
+tdx_attributes_conflict(attributes) if {
+	attributes.debug == true
+	attributes.migratable == true
+}
+
+tdx_attributes_conflict(attributes) if {
+	attributes.icssd == true
+	attributes.perfmon == true
+}
+
+tdx_attributes_conflict(attributes) if {
+	attributes.migratable == true
+	attributes.perfmon == true
 }
 
 tdx_uefi_event_tdvfkernel_ok if {
